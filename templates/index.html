@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>couch_cutter</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #16213e;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      border-bottom: 2px solid #0f3460;
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      color: #e94560;
+      letter-spacing: 0.05em;
+    }
+
+    header span.subtitle {
+      font-size: 0.85rem;
+      color: #888;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ---- File Browser ---- */
+    .file-browser {
+      background: #16213e;
+      border-right: 2px solid #0f3460;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .file-browser h2 {
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #aaa;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    .breadcrumbs {
+      padding: 0.5rem 1rem;
+      font-size: 0.8rem;
+      color: #888;
+      border-bottom: 1px solid #0f3460;
+      min-height: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .breadcrumbs span { cursor: pointer; color: #64b5f6; }
+    .breadcrumbs span:hover { text-decoration: underline; }
+    .breadcrumbs .sep { color: #555; }
+
+    .file-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5rem 0;
+    }
+
+    .file-list ul { list-style: none; }
+
+    .file-list li {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.55rem 1rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      font-size: 0.9rem;
+      border-left: 3px solid transparent;
+    }
+
+    .file-list li:hover { background: #0f3460; }
+    .file-list li.active {
+      background: #0f3460;
+      border-left-color: #e94560;
+    }
+
+    .file-list .icon { font-size: 1rem; flex-shrink: 0; }
+
+    /* ---- Editor ---- */
+    .editor {
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 1.5rem;
+      gap: 1.5rem;
+    }
+
+    .no-file {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #555;
+      font-size: 1.1rem;
+    }
+
+    .editor-card {
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+
+    .editor-card h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #aaa;
+      margin-bottom: 1rem;
+    }
+
+    .file-info {
+      font-size: 0.95rem;
+      color: #64b5f6;
+      word-break: break-all;
+    }
+
+    /* Time inputs */
+    .time-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .time-row label {
+      min-width: 130px;
+      font-size: 0.88rem;
+      color: #bbb;
+    }
+
+    input[type="text"] {
+      background: #0f3460;
+      border: 1px solid #1a4a8a;
+      border-radius: 4px;
+      color: #e0e0e0;
+      padding: 0.4rem 0.65rem;
+      font-size: 0.9rem;
+      width: 130px;
+      font-family: monospace;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #e94560;
+    }
+
+    input[type="text"].invalid { border-color: #ff5252; }
+
+    .hint {
+      font-size: 0.75rem;
+      color: #666;
+      margin-left: 0.25rem;
+    }
+
+    /* Commercial breaks */
+    .break-item {
+      background: #0f3460;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      position: relative;
+    }
+
+    .break-item .break-label {
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 0.25rem;
+    }
+
+    .break-item .remove-btn {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.75rem;
+      background: none;
+      border: none;
+      color: #e94560;
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    .break-item .remove-btn:hover { color: #ff5252; }
+
+    /* Buttons */
+    button {
+      cursor: pointer;
+      border-radius: 5px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      transition: background 0.2s, opacity 0.2s;
+    }
+
+    .btn-add {
+      background: #0f3460;
+      border: 1px dashed #1a4a8a;
+      color: #64b5f6;
+      padding: 0.55rem 1rem;
+      width: 100%;
+      margin-top: 0.25rem;
+    }
+
+    .btn-add:hover { background: #1a4a8a; }
+
+    .btn-cut {
+      background: #e94560;
+      border: none;
+      color: #fff;
+      padding: 0.75rem 2rem;
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      width: 100%;
+    }
+
+    .btn-cut:hover { background: #c73652; }
+    .btn-cut:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Status */
+    .status {
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-all;
+      display: none;
+    }
+
+    .status.show { display: block; }
+    .status.ok { background: #1b4332; border: 1px solid #2d6a4f; color: #95d5b2; }
+    .status.error { background: #3b1717; border: 1px solid #6b2020; color: #ff9999; }
+    .status.running { background: #162032; border: 1px solid #1a4a8a; color: #90caf9; }
+
+    @media (max-width: 700px) {
+      .container { grid-template-columns: 1fr; }
+      .file-browser { max-height: 40vh; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="#e94560">
+      <path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/>
+    </svg>
+    <h1>couch_cutter</h1>
+    <span class="subtitle">TV recording editor</span>
+  </header>
+
+  <div class="container">
+    <!-- File Browser -->
+    <div class="file-browser">
+      <h2>📁 Files</h2>
+      <div class="breadcrumbs" id="breadcrumbs">
+        <span data-path="" onclick="browse('')">root</span>
+      </div>
+      <div class="file-list">
+        <ul id="file-list"></ul>
+      </div>
+    </div>
+
+    <!-- Editor -->
+    <div class="editor" id="editor">
+      <div class="no-file" id="no-file">← Select a video file to start cutting</div>
+
+      <div id="edit-panel" style="display:none; flex-direction:column; gap:1.5rem;">
+
+        <!-- Selected file info -->
+        <div class="editor-card">
+          <h2>Selected file</h2>
+          <div class="file-info" id="selected-file-name"></div>
+        </div>
+
+        <!-- Recording boundaries -->
+        <div class="editor-card">
+          <h2>Recording boundaries</h2>
+          <div class="time-row">
+            <label>Content start</label>
+            <input type="text" id="content-start" value="0" placeholder="HH:MM:SS" />
+            <span class="hint">skip lead‑in</span>
+          </div>
+          <div class="time-row">
+            <label>Content end</label>
+            <input type="text" id="content-end" value="" placeholder="HH:MM:SS" />
+            <span class="hint">skip lead‑out (leave blank = end of file)</span>
+          </div>
+        </div>
+
+        <!-- Commercial breaks -->
+        <div class="editor-card">
+          <h2>Commercial breaks</h2>
+          <div id="breaks-list"></div>
+          <button class="btn-add" onclick="addBreak()">＋ Add commercial break</button>
+        </div>
+
+        <!-- Cut action -->
+        <div class="editor-card">
+          <h2>Action</h2>
+          <p style="font-size:0.82rem; color:#888; margin-bottom:1rem;">
+            The original file will be kept as <em>&lt;filename&gt;.bak</em>.
+            The cut result replaces the original filename.
+          </p>
+          <button class="btn-cut" id="cut-btn" onclick="submitCut()">✂ Cut video</button>
+          <div class="status" id="status-box"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------------------------------------------------------------------------
+    // State
+    // ---------------------------------------------------------------------------
+    let selectedFile = null;
+    let breakCounter = 0;
+
+    // ---------------------------------------------------------------------------
+    // File browser
+    // ---------------------------------------------------------------------------
+    async function browse(path) {
+      const res = await fetch('/api/files?path=' + encodeURIComponent(path));
+      if (!res.ok) { alert('Error loading directory'); return; }
+      const data = await res.json();
+
+      // Breadcrumbs
+      const bc = document.getElementById('breadcrumbs');
+      bc.innerHTML = '';
+      const rootSpan = document.createElement('span');
+      rootSpan.textContent = 'root';
+      rootSpan.onclick = () => browse('');
+      bc.appendChild(rootSpan);
+      for (const crumb of data.breadcrumbs) {
+        const sep = document.createElement('span');
+        sep.className = 'sep';
+        sep.textContent = ' / ';
+        bc.appendChild(sep);
+        const s = document.createElement('span');
+        s.textContent = crumb.name;
+        s.onclick = () => browse(crumb.path);
+        bc.appendChild(s);
+      }
+
+      // File list
+      const ul = document.getElementById('file-list');
+      ul.innerHTML = '';
+
+      // "Go up" entry if not at root
+      if (data.path) {
+        const parent = data.path.includes('/') || data.path.includes('\\')
+          ? data.path.split(/[/\\]/).slice(0, -1).join('/') : '';
+        const li = document.createElement('li');
+        li.innerHTML = '<span class="icon">⬆</span> ..';
+        li.onclick = () => browse(parent);
+        ul.appendChild(li);
+      }
+
+      for (const entry of data.entries) {
+        const li = document.createElement('li');
+        const icon = entry.type === 'dir' ? '📁' : entry.type === 'video' ? '🎬' : '📄';
+        li.innerHTML = `<span class="icon">${icon}</span> ${escHtml(entry.name)}`;
+        if (entry.type === 'dir') {
+          li.onclick = () => browse(entry.path);
+        } else if (entry.type === 'video') {
+          li.onclick = () => selectFile(entry, li);
+        } else {
+          li.style.opacity = '0.45';
+        }
+        ul.appendChild(li);
+      }
+    }
+
+    function selectFile(entry, li) {
+      document.querySelectorAll('.file-list li').forEach(el => el.classList.remove('active'));
+      li.classList.add('active');
+      selectedFile = entry.path;
+      document.getElementById('selected-file-name').textContent = entry.path;
+      document.getElementById('no-file').style.display = 'none';
+      document.getElementById('edit-panel').style.display = 'flex';
+      document.getElementById('content-end').value = '';
+      document.getElementById('content-start').value = '0';
+      document.getElementById('breaks-list').innerHTML = '';
+      breakCounter = 0;
+      hideStatus();
+    }
+
+    // ---------------------------------------------------------------------------
+    // Commercial breaks
+    // ---------------------------------------------------------------------------
+    function addBreak() {
+      const id = breakCounter++;
+      const div = document.createElement('div');
+      div.className = 'break-item';
+      div.id = 'break-' + id;
+      div.innerHTML = `
+        <div class="break-label">Break #${id + 1}</div>
+        <button class="remove-btn" title="Remove" onclick="removeBreak(${id})">✕</button>
+        <div class="time-row">
+          <label>Break start</label>
+          <input type="text" id="break-start-${id}" value="" placeholder="HH:MM:SS" />
+        </div>
+        <div class="time-row">
+          <label>Break end</label>
+          <input type="text" id="break-end-${id}" value="" placeholder="HH:MM:SS" />
+        </div>`;
+      document.getElementById('breaks-list').appendChild(div);
+    }
+
+    function removeBreak(id) {
+      document.getElementById('break-' + id).remove();
+    }
+
+    // ---------------------------------------------------------------------------
+    // Cut
+    // ---------------------------------------------------------------------------
+    async function submitCut() {
+      if (!selectedFile) return;
+
+      // Collect values
+      const contentStart = document.getElementById('content-start').value.trim() || '0';
+      const contentEndRaw = document.getElementById('content-end').value.trim();
+
+      // Collect breaks (only fully-filled ones)
+      const breakItems = document.querySelectorAll('.break-item');
+      const breaks = [];
+      for (const item of breakItems) {
+        const id = item.id.replace('break-', '');
+        const bs = document.getElementById('break-start-' + id).value.trim();
+        const be = document.getElementById('break-end-' + id).value.trim();
+        if (!bs && !be) continue;
+        if (!bs || !be) {
+          showStatus('Each commercial break needs both a start and end time.', 'error');
+          return;
+        }
+        breaks.push({ start: bs, end: be });
+      }
+
+      // Build segments from content boundaries + breaks
+      // Segments are the non-commercial portions of the content window.
+      // E.g.: [contentStart .. break1Start], [break1End .. break2Start], ..., [lastBreakEnd .. contentEnd]
+      const segments = [];
+      let segStart = contentStart;
+
+      for (const br of breaks) {
+        segments.push({ start: segStart, end: br.start });
+        segStart = br.end;
+      }
+
+      // Last segment up to content end (or end of file)
+      const lastEnd = contentEndRaw || null;
+      if (lastEnd) {
+        segments.push({ start: segStart, end: lastEnd });
+      } else {
+        // No explicit end: we need a sentinel. We'll pass a very large value and
+        // let the server handle end-of-file detection, but for now we pass '99:00:00'.
+        // The ffmpeg trim filter naturally stops at EOF if end > duration.
+        segments.push({ start: segStart, end: '99:00:00' });
+      }
+
+      setRunning(true);
+      showStatus('Running ffmpeg…', 'running');
+
+      try {
+        const res = await fetch('/api/cut', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file: selectedFile, segments }),
+        });
+        const json = await res.json();
+        if (res.ok && json.status === 'ok') {
+          showStatus('✔ Done! Original saved as ' + selectedFile + '.bak', 'ok');
+        } else {
+          showStatus('✘ ffmpeg error:\n' + (json.output || json.message || 'Unknown error'), 'error');
+        }
+      } catch (err) {
+        showStatus('✘ Network error: ' + err.message, 'error');
+      } finally {
+        setRunning(false);
+      }
+    }
+
+    // ---------------------------------------------------------------------------
+    // UI helpers
+    // ---------------------------------------------------------------------------
+    function showStatus(msg, cls) {
+      const box = document.getElementById('status-box');
+      box.textContent = msg;
+      box.className = 'status show ' + cls;
+    }
+
+    function hideStatus() {
+      const box = document.getElementById('status-box');
+      box.className = 'status';
+    }
+
+    function setRunning(on) {
+      document.getElementById('cut-btn').disabled = on;
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // ---------------------------------------------------------------------------
+    // Init
+    // ---------------------------------------------------------------------------
+    browse('');
+  </script>
+</body>
+</html>
